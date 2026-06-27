@@ -1,4 +1,4 @@
-require "io/console"
+require 'io/console'
 
 module Menu
   class << self
@@ -6,13 +6,15 @@ module Menu
     SELECTED = "\e[1;32m"
     ERROR = "\e[1;47;31m"
 
-    def clear_console = puts "\e]H\e[2J"
+    def clear_console
+      puts "\e]H\e[2J"
+    end
 
     def menu(index, description, items)
       clear_console
       puts description
       items.each_with_index do |item, i|
-          puts "#{index == i ? SELECTED : RESET}- #{item} #{RESET}"
+        puts "#{index == i ? SELECTED : RESET}- #{item} #{RESET}"
       end
     end
 
@@ -23,10 +25,10 @@ module Menu
         char = $stdin.getch
         case char
         when "\e"
-          if $stdin.getch == "["
+          if $stdin.getch == '['
             arrow = $stdin.getch
-            index -= 1 if index.positive? && arrow == "A"
-            index += 1 if index < items.length - 1 && arrow == "B"
+            index -= 1 if index.positive? && arrow == 'A'
+            index += 1 if index < items.length - 1 && arrow == 'B'
           end
         when "\r", "\n"
           return items[index]
@@ -37,17 +39,17 @@ module Menu
       end
     end
 
-    def get_input(description, condition, error = "ERROR! Please try again!")
+    def get_input(description, condition, error = 'ERROR! Please try again!')
       loop do
-      puts description
-      input = gets.chomp
+        puts description
+        input = gets.chomp
 
-      return input if condition.call(input)
+        return input if condition.call(input)
 
-      puts "#{ERROR} #{error} #{RESET}"
+        puts "#{ERROR} #{error} #{RESET}"
       end
     end
   end
 end
 
-Menu.menu(1,"Hello",["ee","eeee","ee"])
+Menu.menu(1, 'Hello', %w[ee eeee ee])
