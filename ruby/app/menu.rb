@@ -1,15 +1,7 @@
-require 'io/console'
+require_relative 'io'
 
 module Menu
   class << self
-    RESET = "\e[0m"
-    SELECTED = "\e[1;32m"
-    ERROR = "\e[1;47;31m"
-
-    def clear_console
-      puts "\e]H\e[2J"
-    end
-
     def menu(index, description, items)
       clear_console
       puts description
@@ -20,6 +12,8 @@ module Menu
 
     def use_menu(index, description, items)
       menu(index, description, items)
+
+      items << 'Quit'
 
       loop do
         char = $stdin.getch
@@ -38,18 +32,5 @@ module Menu
         menu(index, description, items)
       end
     end
-
-    def get_input(description, condition, error = 'ERROR! Please try again!')
-      loop do
-        puts description
-        input = gets.chomp
-
-        return input if condition.call(input)
-
-        puts "#{ERROR} #{error} #{RESET}"
-      end
-    end
   end
 end
-
-Menu.menu(1, 'Hello', %w[ee eeee ee])
