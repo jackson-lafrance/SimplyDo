@@ -1,11 +1,11 @@
 require 'io/console'
 
-module IO
-  class << self
-    RESET = "\e[0m"
-    SELECTED = "\e[1;32m"
-    ERROR = "\e[1;47;31m"
+module Terminal
+  RESET = "\e[0m"
+  SELECTED = "\e[1;32m"
+  ERROR = "\e[1;47;31m"
 
+  class << self
     def clear_console
       puts "\e]H\e[2J"
     end
@@ -22,7 +22,7 @@ module IO
     end
 
     def find_width
-      size = get_term_size
+      size = term_size
       if size.nil?
         puts 'CANT FIND TERMINAL SIZE'
         return 80
@@ -52,5 +52,3 @@ module IO
     end
   end
 end
-
-Menu.menu(1, 'Hello', %w[ee eeee ee])

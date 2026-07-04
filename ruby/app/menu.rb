@@ -1,12 +1,12 @@
-require_relative 'io'
+require_relative 'terminal'
 
 module Menu
   class << self
     def menu(index, description, items)
-      clear_console
+      Terminal.clear_console
       puts description
       items.each_with_index do |item, i|
-        puts "#{index == i ? SELECTED : RESET}- #{item} #{RESET}"
+        puts "#{index == i ? Terminal::SELECTED : Terminal::RESET}- #{item} #{Terminal::RESET}"
       end
     end
 
