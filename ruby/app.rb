@@ -1,16 +1,10 @@
 require_relative 'app/menu'
-require_relative 'app/schedule'
-require_relative 'app/todo'
-require_relative 'app/habits'
+require_relative 'app/schedule_screen'
 
 loop do
-  case Menu.use_menu(0, 'Get ready to do', %w[Schedule Todo Habits])
+  case Menu.use_menu(0, 'Get ready to do', %w[Schedule])
   when 'Schedule'
-    Schedule
-  when 'Todo'
-    Todo
-  when 'Habits'
-    Habits
+    ScheduleScreen.show
   when 'Quit'
     exit
   end

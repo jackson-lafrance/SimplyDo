@@ -1,40 +1,126 @@
-require_relative 'terminal'
+require 'date'
+require_relative 'constants'
 
 module Schedule
-  class Day
-    def initialize
-      @events = {}
+  Event = Struct.new(:id, :day, :start, :time, :title, :recurring_event_id, :deleted_at, keyword_init: true) do
+    def finish
+      start + time
     end
 
-    def to_s
-      return 'No events' if @events.empty?
-
-      @events
-        .sort_by { |time_range, _title| time_range.begin }
-        .map { |time_range, title| event_string(time_range, title) }
-        .join("\n")
+    def recurring?
+      !recurring_event_id.nil?
     end
 
-    def add_event(start, time, title)
-      time_range = start...(start + time)
-      dupe = @events.detect { |event_range, _title| overlaps?(event_range, time_range) }&.last
+    def deleted?
+      !deleted_at.nil?
+    end
+  end
 
-      if dupe
-        print "Event overlaps with #{dupe}\nStill add it? (Y / n): "
-        return if gets.chomp in ['n', 'N', 'no', 'NO', 'No']
+  RecurringEvent = Struct.new(:id, :starts_on, :ends_on, :unit, :interval, :start, :time, :title, :deleted_at, keyword_init: true) do
+    def deleted?
+      !deleted_at.nil?
+    end
+  end
+
+  DeletedOccurrence = Struct.new(:recurring_event_id, :day, :deleted_at, keyword_init: true)
+
+  @events = []
+  @recurring_events = []
+  @deleted_occurrences = []
+  @next_event_id = 1
+  @next_recurring_event_id = 1
+
+  class << self
+    def add_event(day, start, time, title)
+      event = Event.new(
+        id: next_event_id,
+        day: normalize_day(day),
+        start: start,
+        time: time,
+        title: title,
+        recurring_event_id: nil,
+        deleted_at: nil
+      )
+
+      @events << event
+      event
+    end
+
+    def add_recurring_event(starts_on:, unit:, interval:, start:, time:, title:, ends_on: nil)
+      recurring_event = RecurringEvent.new(
+        id: next_recurring_event_id,
+        starts_on: normalize_day(starts_on),
+        ends_on: ends_on.nil? ? nil : normalize_day(ends_on),
+        unit: normalize_unit(unit),
+        interval: normalize_interval(interval),
+        start: start,
+        time: time,
+        title: title,
+        deleted_at: nil
+      )
+
+      @recurring_events << recurring_event
+      recurring_event
+    end
+
+    def remove_event(id, deleted_at: Time.now)
+      event = event(id)
+      return if event.nil? || event.deleted?
+
+      event.deleted_at = deleted_at
+      event
+    end
+
+    def remove_recurring_event(id, deleted_at: Time.now)
+      recurring_event = recurring_event(id)
+      return if recurring_event.nil? || recurring_event.deleted?
+
+      recurring_event.deleted_at = deleted_at
+      recurring_event
+    end
+
+    def remove_recurring_occurrence(recurring_event_id, day, deleted_at: Time.now)
+      day = normalize_day(day)
+      existing = @deleted_occurrences.find do |deleted_occurrence|
+        deleted_occurrence.recurring_event_id == recurring_event_id && deleted_occurrence.day == day
       end
+      return existing if existing
 
-      @events[time_range] = title
+      deleted_occurrence = DeletedOccurrence.new(
+        recurring_event_id: recurring_event_id,
+        day: day,
+        deleted_at: deleted_at
+      )
+
+      @deleted_occurrences << deleted_occurrence
+      deleted_occurrence
     end
 
-    private
-
-    def overlaps?(event_range, new_range)
-      new_range.begin < event_range.end && event_range.begin < new_range.end
+    def event(id)
+      @events.find { |existing| existing.id == id }
     end
 
-    def event_string(time_range, title)
-      "#{title}: #{format_time(time_range.begin)} - #{format_duration(time_range.end - time_range.begin)}"
+    def recurring_event(id)
+      @recurring_events.find { |existing| existing.id == id }
+    end
+
+    def events_for(day)
+      day = normalize_day(day)
+      one_time_events = @events.select { |event| !event.deleted? && event.day == day }
+      recurring_events = @recurring_events
+        .select { |recurring_event| recurring_event_on?(recurring_event, day) }
+        .map { |recurring_event| event_from_recurring_event(recurring_event, day) }
+
+      sort_events(one_time_events + recurring_events)
+    end
+
+    def parse_duration(input)
+      text = input.to_s.strip
+      raise ArgumentError, 'duration cannot be blank' if text.empty?
+      raise ArgumentError, 'duration must look like HH:MM' unless text.match?(/\A\d{2}:\d{2}\z/)
+
+      hours, minutes = text.split(':').map(&:to_i)
+      (hours * 60) + minutes
     end
 
     def format_time(minutes)
@@ -46,10 +132,76 @@ module Schedule
       remaining_minutes = minutes % 60
       parts = []
 
-      parts << "#{hours} #{hours == 1 ? 'hour' : 'hours'}" if hours.positive?
-      parts << "#{remaining_minutes} #{remaining_minutes == 1 ? 'minute' : 'minutes'}" if remaining_minutes.positive?
+      parts << "#{hours} h" if hours.positive?
+      parts << "#{remaining_minutes} min" if remaining_minutes.positive?
+      parts.empty? ? '0 min' : parts.join(' ')
+    end
 
-      parts.empty? ? '0 minutes' : parts.join(' ')
+    private
+
+    def next_event_id
+      id = @next_event_id
+      @next_event_id += 1
+      id
+    end
+
+    def next_recurring_event_id
+      id = @next_recurring_event_id
+      @next_recurring_event_id += 1
+      id
+    end
+
+    def sort_events(events)
+      events.sort_by { |event| [event.start, event.finish, event.title] }
+    end
+
+    def normalize_day(day)
+      return day if day.is_a?(Date)
+
+      Date.parse(day.to_s)
+    end
+
+    def normalize_unit(unit)
+      unit = unit.to_s.downcase.to_sym
+      raise ArgumentError, "repeat type must be one of #{Constants::Schedule::RECURRING_UNITS.join(', ')}" unless Constants::Schedule::RECURRING_UNITS.include?(unit)
+
+      unit
+    end
+
+    def normalize_interval(interval)
+      interval = interval.to_i
+      raise ArgumentError, 'interval must be at least 1' if interval < 1
+
+      interval
+    end
+
+    def recurring_event_on?(recurring_event, day)
+      return false if recurring_event.deleted?
+      return false if occurrence_deleted?(recurring_event.id, day)
+      return false if day < recurring_event.starts_on
+      return false if recurring_event.ends_on && day > recurring_event.ends_on
+
+      days_between = (day - recurring_event.starts_on).to_i
+      repeat_every = recurring_event.unit == :weeks ? recurring_event.interval * 7 : recurring_event.interval
+      (days_between % repeat_every).zero?
+    end
+
+    def occurrence_deleted?(recurring_event_id, day)
+      @deleted_occurrences.any? do |deleted_occurrence|
+        deleted_occurrence.recurring_event_id == recurring_event_id && deleted_occurrence.day == day
+      end
+    end
+
+    def event_from_recurring_event(recurring_event, day)
+      Event.new(
+        id: "recurring-#{recurring_event.id}-#{day.iso8601}",
+        day: day,
+        start: recurring_event.start,
+        time: recurring_event.time,
+        title: recurring_event.title,
+        recurring_event_id: recurring_event.id,
+        deleted_at: nil
+      )
     end
   end
 end

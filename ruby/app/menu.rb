@@ -1,35 +1,41 @@
+require_relative 'constants'
+require_relative 'screen_buffer'
 require_relative 'terminal'
 
 module Menu
   class << self
     def menu(index, description, items)
-      Terminal.clear_console
-      puts description
+      Terminal.hide_cursor
+
+      buffer = ScreenBuffer.new(width: Terminal.width, height: Terminal.height)
+      buffer.write(0, 0, description, color: Constants::Terminal::TITLE)
+
       items.each_with_index do |item, i|
-        puts "#{index == i ? Terminal::SELECTED : Terminal::RESET}- #{item} #{Terminal::RESET}"
+        color = index == i ? Constants::Terminal::SELECTED : nil
+        buffer.write(0, i + 2, "- #{item}", color: color)
       end
+
+      Terminal.blit(buffer)
     end
 
-    def use_menu(index, description, items)
-      menu(index, description, items)
-
-      items << 'Quit'
+    def use_menu(index, description, items, include_quit: true)
+      options = include_quit ? items + ['Quit'] : items.dup
+      menu(index, description, options)
 
       loop do
-        char = $stdin.getch
-        case char
-        when "\e"
-          if $stdin.getch == '['
-            arrow = $stdin.getch
-            index -= 1 if index.positive? && arrow == 'A'
-            index += 1 if index < items.length - 1 && arrow == 'B'
-          end
-        when "\r", "\n"
-          return items[index]
-        when "\u0003"
-          exit
+        key = Terminal.read_key
+        exit if key.nil?
+
+        case key
+        when :up
+          index -= 1 if index.positive?
+        when :down
+          index += 1 if index < options.length - 1
+        when :enter
+          return options[index]
         end
-        menu(index, description, items)
+
+        menu(index, description, options)
       end
     end
   end
