@@ -30,13 +30,13 @@ times INTEGER, type TEXT)"
   def make_booking(booking)
     check_connection
     @db.execute "INSERT INTO Bookings (title, description, color, start_date, length, times, type) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      booking[:title], booking[:description], booking[:color], booking[:start_date], booking[:length], booking[:times], booking[:type]
+      [booking[:title], booking[:description], booking[:color], booking[:start_date], booking[:length], booking[:times], booking[:type]]
   end
 
   def make_task(task)
     check_connection
     @db.execute "INSERT INTO Tasks (title, description, color, due_date) VALUES (?, ?, ?, ?)",
-      task[:title], task[:description], task[:color], task[:due_date]
+      [task[:title], task[:description], task[:color], task[:due_date]]
   end
 
   private

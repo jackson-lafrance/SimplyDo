@@ -30,7 +30,6 @@ module Blitz
   end
 
   def create_screen
-    print "\033[2J\033[H"
     height.times do |h|
       width.times do |w|
         next if @screen[h][w] == @old_screen[h][w]
@@ -38,9 +37,10 @@ module Blitz
         print "\033[#{h + 1};#{w + 1}H"
         print @screen[h][w] || " "
       end
-      print "\n"
     end
+
     @old_screen = @screen.map(&:dup)
+    $stdout.flush
   end
 
   def get_ch
@@ -74,6 +74,7 @@ module Blitz
   def reset_screen
     @screen = Array.new(get_height) { Array.new(get_width) }
     @old_screen = Array.new(get_height) { Array.new(get_width) }
+    print "\033[2J\033[H"
   end
 
   def detect_terminal_size
