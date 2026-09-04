@@ -1,12 +1,14 @@
 # frozen_string_literal: true
 
+require "io/console"
+
 module Blitz
+  extend self
   @screen = nil
   @old_screen = nil
 
   def check_reset
-    @screen = @old_screen
-    reset_screen unless @screen && @screen.length == get_height
+    reset_screen unless @screen && @screen.length == get_height && @screen[0].length == get_width
   end
 
   def width
@@ -20,20 +22,45 @@ module Blitz
   end
 
   def blit(top, left, matrix)
-    if matrix.is_a?(string)
-      matrix.for_each_with_index { |letter, col_number| @screen[top][left + col_number] = letter }
+    if matrix.is_a?(String)
+      matrix.each_char.with_index { |letter, col_number| @screen[top][left + col_number] = letter }
     else
-      matrix.for_each_with_index { |row, row_number| row.for_each_with_index { |letter, col_number| @screen[top + row_number][left + col_number] = letter } }
+      matrix.each_with_index { |row, row_number| row.each_with_index { |letter, col_number| @screen[top + row_number][left + col_number] = letter } }
     end
   end
 
   def create_screen
-    print "\e[H"
+    print "\033[2J\033[H"
     height.times do |h|
       width.times do |w|
-        print @screen[h][w] unless @screen[h][w] == @old_screen[h][w]
+        next if @screen[h][w] == @old_screen[h][w]
+
+        print "\033[#{h + 1};#{w + 1}H"
+        print @screen[h][w] || " "
       end
       print "\n"
+    end
+    @old_screen = @screen.map(&:dup)
+  end
+
+  def get_ch
+    loop do
+      char = $stdin.getch
+      case char
+      when "\e"
+        if $stdin.getch == "["
+          arrow = $stdin.getch
+          return "LEFT" if arrow == "D"
+          return "RIGHT" if arrow == "C"
+          return "UP" if arrow == "A"
+          return "DOWN" if arrow == "B"
+        end
+      when "\r", "\n"
+        return "CR"
+      when "\u0003"
+        exit
+      else return char
+      end
     end
   end
 
@@ -46,7 +73,7 @@ module Blitz
 
   def reset_screen
     @screen = Array.new(get_height) { Array.new(get_width) }
-    @old_screen = nil
+    @old_screen = Array.new(get_height) { Array.new(get_width) }
   end
 
   def detect_terminal_size
@@ -59,19 +86,21 @@ module Blitz
     else
       nil
     end
-  rescue
-    nil
   end
 
   def get_width
-    w = detect_terminal_size[0]
-    raise StandardError, "Could not compute terminal size" unless w
-    w
+    size = detect_terminal_size
+    raise StandardError, "Could not compute terminal size" unless size
+    size[0]
   end
 
   def get_height
-    h = detect_terminal_size[1]
-    raise StandardError, "Could not compute terminal size" unless h
-    h
+    size = detect_terminal_size
+    raise StandardError, "Could not compute terminal size" unless size
+    size[1]
+  end
+
+  def command_exists?(command)
+    system("command -v #{command} > /dev/null 2>&1")
   end
 end
