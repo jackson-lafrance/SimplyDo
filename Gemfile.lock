@@ -1,0 +1,19 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    curses (1.7.0)
+    sqlite3 (2.9.6-arm64-darwin)
+
+PLATFORMS
+  arm64-darwin-24
+
+DEPENDENCIES
+  curses (~> 1.7)
+  sqlite3 (~> 2.9)
+
+CHECKSUMS
+  curses (1.7.0) sha256=c524ff30704bbd136d68d2731263b31edaf4f236b0cbb9b8dd6c802de3317057
+  sqlite3 (2.9.6-arm64-darwin) sha256=849b5d7f795e60fe25076d62c72dd722beb45b3850b516ad978d60ee848ec15b
+
+BUNDLED WITH
+  4.0.3
