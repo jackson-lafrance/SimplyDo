@@ -1,3 +1,0 @@
-        print "\033[?25h"
-        $stdout.flush
-        exit
